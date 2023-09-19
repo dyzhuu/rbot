@@ -1,0 +1,9 @@
+.env
+prompt.txt
+.idea
+venv
+opus
+ffmpeg
+**/*.opus
+**/__pycache__/
+.DS_Store
