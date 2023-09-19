@@ -3,5 +3,6 @@ venv
 opus
 ffmpeg
 **/*.opus
+**/*.opus.part
 **/__pycache__/
 .DS_Store

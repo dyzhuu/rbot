@@ -12,6 +12,8 @@ import time
 from helper import convert_seconds
 from spotify_api import get_videos_from_spotify_album
 
+from ytmusicapi import YTMusic
+
 ydl_opts = {
     'format': 'bestaudio/best',
     'merge_output_format': 'opus',
@@ -33,6 +35,16 @@ ffmpeg_options = {
 
 ytdl = yt_dlp.YoutubeDL(ydl_opts)
 
+yt_music = YTMusic()
+
+
+def download_youtube_audio(url: str, download=True):
+    data = ytdl.extract_info(url, download=download)
+    time.sleep(2)
+    if 'entries' in data:
+        data = data['entries'][0]
+    return data
+
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
@@ -45,10 +57,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None, stream=False):
         try:
             loop = loop or asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-
-            if 'entries' in data:
-                data = data['entries'][0]
+            data = await loop.run_in_executor(None, lambda: download_youtube_audio(url, download=not stream))
 
             return {
                 "file": ytdl.prepare_filename(data),
@@ -63,13 +72,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
             return
 
     @classmethod
-    async def from_spotify(cls, url, *, loop=None, stream=False):
+    async def from_spotify(cls, query, *, loop=None, stream=False):
         try:
             loop = loop or asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info("ytsearch:"+url, download=not stream))
 
-            if 'entries' in data:
-                data = data['entries'][0]
+            search_results = yt_music.search(query, filter='songs', limit=1)[0]
+
+            videoId = search_results.get('videoId')
+
+            data = await loop.run_in_executor(None, lambda: download_youtube_audio(f"https://www.youtube.com/watch?v={videoId}", download=not stream))
 
             return {
                 "file": ytdl.prepare_filename(data),
@@ -83,10 +94,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url_download_only(cls, url, *, loop=None):
         try:
             loop = loop or asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=True))
-
-            if 'entries' in data:
-                data = data['entries'][0]
+            data = await loop.run_in_executor(None, lambda: download_youtube_audio(url, download=True))
 
             return ytdl.prepare_filename(data)
         except Exception as e:

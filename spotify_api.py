@@ -26,10 +26,8 @@ def get_recommended_song(history):
         filter(lambda t: t.popularity > 15, recommendations))
 
     random.shuffle(filtered_recommendations)
-    return {
-        "title": filtered_recommendations[0].name,
-        "artist": filtered_recommendations[0].artists[0].name,
-    }
+    track = filtered_recommendations[0]
+    return f"{track.name} {track.artists[0].name}"
 
 
 def get_videos_from_spotify_playlist(spotify_url: str):
@@ -39,9 +37,9 @@ def get_videos_from_spotify_playlist(spotify_url: str):
     tracks = [track.track for track in spotify.playlist(
         playlist_id).tracks.items]
     return [{
-        "title": f"{track.name} - {', '.join([artist.name for artist in track.artists])}",
-        "artist": track.artists[0].name,
-        "url": f"{track.name} - {', '.join([artist.name for artist in track.artists])}",
+        "title": f"{track.name} - {track.artists[0].name}",
+        "album": track.album.name,
+        "url": f"{track.name} - {track.artists[0].name}",
         "image_url": track.album.images[0].url,
         "song_url": track.external_urls['spotify'],
         "type": "spotify"
@@ -59,9 +57,9 @@ def get_videos_from_spotify_album(spotify_url: str):
     tracks = album.tracks.items
 
     return [{
-        "title": f"{track.name} - {', '.join([artist.name for artist in track.artists])}",
-        "artist": track.artists[0].name,
-        "url": f"{track.name} - {', '.join([artist.name for artist in track.artists])}",
+        "title": f"{track.name} - {track.artists[0].name}",
+        "album": album.name,
+        "url": f"{track.name} - {track.artists[0].name}",
         "image_url": image_url,
         "song_url": track.external_urls['spotify'],
         "type": "spotify"
@@ -73,9 +71,11 @@ def get_spotify_track(spotify_url: str):
         return
     try:
         track = spotify.track(tk.from_url(spotify_url)[1])
+
         return {
-            "title": f"{track.name} - {', '.join([artist.name for artist in track.artists])}",
-            "artist": track.artists[0].name,
+            "title": f"{track.name} - {track.artists[0].name}",
+            "album": track.album.name,
+            "url": f"{track.name} - {track.artists[0].name}",
             "image_url": track.album.images[0].url,
             "song_url": track.external_urls['spotify'],
             "type": "spotify"

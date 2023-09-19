@@ -60,5 +60,3 @@ client = DiscordClient(intents=intents)
 
 asyncio.run(client.add_cog(Music(bot=client)))
 asyncio.run(client.add_cog(Help(bot=client)))
-
-client.run(TOKEN)
