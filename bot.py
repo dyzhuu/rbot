@@ -8,9 +8,9 @@ import ctypes
 
 from cogs.music import Music
 from cogs.help import Help
+from lib.chatgpt import chatgpt_response
 
 from discord.ext import commands
-from chatgpt import chatgpt_response
 from dotenv import load_dotenv
 
 load_dotenv()

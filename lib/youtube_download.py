@@ -5,12 +5,12 @@ import os
 import requests
 from dotenv import load_dotenv
 from pytube import YouTube, Search, Playlist, extract
-from helper import convert_seconds
 import asyncio
 import aiohttp
 import time
-from spotify_api import get_videos_from_spotify_album
 
+from lib.helper import convert_seconds
+from lib.spotify_api import get_videos_from_spotify_album
 
 ydl_opts = {
     'format': 'bestaudio/best',
