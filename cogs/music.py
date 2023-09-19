@@ -14,10 +14,10 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from concurrent.futures.thread import ThreadPoolExecutor
 
-from lib.youtube_download import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
-from lib.helper import delete_audio, number_emojis, convert_seconds
-from lib.spotify_api import get_recommended_song, get_videos_from_spotify_playlist, get_spotify_track, get_videos_from_spotify_album, search_album, search_playlist
-from lib.lyrics import get_lyrics
+from youtube_download import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
+from helper import delete_audio, number_emojis, convert_seconds
+from spotify_api import get_recommended_song, get_videos_from_spotify_playlist, get_spotify_track, get_videos_from_spotify_album, search_album, search_playlist
+from lyrics import get_lyrics
 
 load_dotenv()
 ENVIRONMENT = os.getenv('ENVIRONMENT')

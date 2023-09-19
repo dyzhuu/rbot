@@ -9,8 +9,8 @@ import asyncio
 import aiohttp
 import time
 
-from lib.helper import convert_seconds
-from lib.spotify_api import get_videos_from_spotify_album
+from helper import convert_seconds
+from spotify_api import get_videos_from_spotify_album
 
 ydl_opts = {
     'format': 'bestaudio/best',
