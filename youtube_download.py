@@ -63,6 +63,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 "file": ytdl.prepare_filename(data),
                 "url": data['original_url'],
                 "title": data['title'],
+                "author": data['uploader'],
                 "image_url": data['thumbnail'],
                 "time": round(data['duration']),
                 "type": "youtube",
@@ -108,6 +109,7 @@ def get_youtube_video(url: str):
     return {
         "url": yt.watch_url,
         "title": yt.title,
+        "author": yt.author,
         "image_url": yt.thumbnail_url,
         "time": round(yt.length),
         "type": "youtube",
@@ -121,17 +123,17 @@ def get_videos_from_yt_playlist(url: str):
     return p.video_urls
 
 
-def get_video_for_multiple(url: str):
-    yt = YouTube(url)
+# def get_video_for_multiple(url: str):
+#     yt = YouTube(url)
 
-    return {
-        "url": yt.watch_url,
-        "title": yt.title,
-        "author": yt.author,
-        "image_url": yt.thumbnail_url,
-        "time": round(yt.length),
-        "type": "youtube",
-    }
+#     return {
+#         "url": yt.watch_url,
+#         "title": yt.title,
+#         "author": yt.author,
+#         "image_url": yt.thumbnail_url,
+#         "time": round(yt.length),
+#         "type": "youtube",
+#     }
 
 
 def search_multiple_video(query: str):
@@ -139,4 +141,4 @@ def search_multiple_video(query: str):
         return
 
     s = Search(query)
-    return [get_video_for_multiple(video.watch_url) for video in s.results[:5]]
+    return [get_youtube_video(video.watch_url) for video in s.results[:5]]

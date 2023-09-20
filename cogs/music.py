@@ -13,6 +13,7 @@ from collections import deque
 from discord.ext import commands
 from dotenv import load_dotenv
 from concurrent.futures.thread import ThreadPoolExecutor
+from enum import Enum
 
 from youtube_download import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
 from helper import delete_audio, number_emojis, convert_seconds
@@ -31,11 +32,17 @@ if not discord.opus.is_loaded():
     discord.opus.load_opus(opus_path)
 
 
+class Loop(Enum):
+    OFF = 1,
+    ON = 2,
+    ONE = 3
+
+
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = deque()
-        self.is_loop = False
+        self.loop_state = Loop.OFF
         self.past = None
         self.now_playing = None
         self.playlist_videos = deque()
@@ -54,10 +61,6 @@ class Music(commands.Cog):
                     ctx.voice_client.disconnect(), self.bot.loop)
                 return
         self.past = self.now_playing
-        if self.is_skip:
-            self.is_skip = False
-        else:
-            self.history.appendleft(self.now_playing)
         if len(self.history) > 5:
             self.history.pop()
         if self.is_seek:
@@ -66,10 +69,16 @@ class Music(commands.Cog):
         voice_client = ctx.voice_client
         if not voice_client:
             return
-        if not self.is_loop and self.now_playing not in self.queue and os.path.exists(self.now_playing["file"]):
+        if self.loop_state == Loop.OFF and self.now_playing not in self.queue and os.path.exists(self.now_playing["file"]):
             os.remove(self.now_playing["file"])
-        if self.is_loop:
+        if self.loop_state == Loop.ON and not self.is_skip:
             self.queue.append(self.now_playing)
+        elif self.loop_state == Loop.ONE and not self.is_skip:
+            self.queue.appendleft(self.now_playing)
+        if self.is_skip:
+            self.is_skip = False
+        else:
+            self.history.appendleft(self.now_playing)
         self.now_playing = None
         if len(self.queue) >= 1:
             counter = 0
@@ -390,6 +399,7 @@ class Music(commands.Cog):
 
     @commands.command(name='skip', help='Skips the song, or skips to a specific song', usage='skip | skip <position in queue>')
     async def _skip(self, ctx, number: int = 1):
+        self.is_skip = True
         voice_client = ctx.voice_client
         if number < 1 or (self.queue and number > len(self.queue)):
             await ctx.send("invalid position in queue")
@@ -412,18 +422,30 @@ class Music(commands.Cog):
         await ctx.send(f"skipped **{self.now_playing['title']}**")
         voice_client.stop()
 
-    @commands.command(name='loop', help='Loops the queue', aliases=['repeat'], usage='loop [on | off]')
+    @commands.command(name='loop', help='Loops the queue', aliases=['repeat'], usage='loop [on | off | one]')
     async def _loop(self, ctx, setting=None):
         if setting == "off":
-            self.is_loop = False
+            self.loop_state = Loop.OFF
             await ctx.send("looping is now off")
         elif setting == "on":
-            self.is_loop = True
+            self.loop_state = Loop.ON
             await ctx.send("looping is now on")
+        elif setting == "one":
+            self.loop_state = Loop.ONE
+            await ctx.send("looping is now set to one")
         else:
-            embed = discord.Embed(
-                title=f"Looping is {'enabled' if self.is_loop else 'disabled'}.",
-                description="Use `loop [on | off]` to change.", color=discord.Colour.red())
+            if self.loop_state == Loop.ON:
+                embed = discord.Embed(
+                    title=f"Looping is disabled.",
+                    description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
+            elif self.loop_state == Loop.OFF:
+                embed = discord.Embed(
+                    title=f"Looping is enabled.",
+                    description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
+            else:
+                embed = discord.Embed(
+                    title=f"Looping is set to one.",
+                    description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
             await ctx.send(embed=embed)
 
     async def send_queue_page(self, ctx, page, queue_message=None):
@@ -678,7 +700,7 @@ class Music(commands.Cog):
     @commands.command(name='poke', help='Pokes the bot', usage='poke')
     async def _poke(self, ctx):
         ctx.voice_client.pause()
-        time.sleep(2)
+        time.sleep(1.5)
         ctx.voice_client.resume()
 
     @commands.command(name='replay', help='Replays the last song.', aliases=['rp', 'again'], usage='replay')
@@ -757,9 +779,13 @@ class Music(commands.Cog):
             return
         if "lyrics" not in self.now_playing:
             async with ctx.typing():
+                if self.now_playing['type'] == "spotify":
+                    song_name = self.now_playing['title']
+                else:
+                    song_name = f"{self.now_playing['title']}, {self.now_playing['author']}"
                 print("searching lyrics for", self.now_playing["title"])
                 lyrics = await self.bot.loop.run_in_executor(
-                    None, get_lyrics, self.now_playing["title"])
+                    None, get_lyrics, song_name)
             if not lyrics:
                 await ctx.send("lyrics not found")
                 self.now_playing['lyrics'] = None
