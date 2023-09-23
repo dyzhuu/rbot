@@ -481,9 +481,9 @@ class Music(commands.Cog):
 
             await queue_message.clear_reactions()
             if reaction.emoji == "◀️":
-                await self._queue_command(ctx, page-1, queue_message)
+                await self.send_queue_page(ctx, page-1, queue_message)
             elif reaction.emoji == "▶️":
-                await self._queue_command(ctx, page+1, queue_message)
+                await self.send_queue_page(ctx, page+1, queue_message)
         except TimeoutError:
             if queue_message:
                 await queue_message.clear_reactions()
