@@ -786,11 +786,14 @@ class Music(commands.Cog):
                 print("searching lyrics for", self.now_playing["title"])
                 lyrics = await self.bot.loop.run_in_executor(
                     None, get_lyrics, song_name)
-            if not lyrics:
-                await ctx.send("lyrics not found")
-                self.now_playing['lyrics'] = None
-                return
-            self.now_playing['lyrics'] = lyrics
+                if not lyrics and self.now_playing['type'] != "spotify":
+                    lyrics = await self.bot.loop.run_in_executor(
+                        None, get_lyrics, self.now_playing['title'])
+                if not lyrics:
+                    await ctx.send("lyrics not found")
+                    self.now_playing['lyrics'] = None
+                    return
+                self.now_playing['lyrics'] = lyrics
         await self.send_lyric_page(ctx)
 
     @commands.command(name='download', hidden=True)
