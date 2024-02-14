@@ -8,6 +8,7 @@ from pytube import YouTube, Search, Playlist, extract
 import asyncio
 import aiohttp
 import time
+import difflib
 
 from helper import convert_seconds
 from spotify_api import get_videos_from_spotify_album
@@ -77,9 +78,20 @@ class YTDLSource(discord.PCMVolumeTransformer):
         try:
             loop = loop or asyncio.get_event_loop()
 
-            search_results = yt_music.search(query, filter='songs', limit=1)[0]
+            search_results = yt_music.search(
+                query, filter='songs', limit=3)[:3]
 
-            videoId = search_results.get('videoId')
+            search_result_names = [
+                f"{song.get('title')} {song.get('artists')[0].get('name')}" for song in search_results]
+
+            song = search_results[0]
+            closest_match = difflib.get_close_matches(
+                query, search_result_names, n=1, cutoff=0)
+            if closest_match:
+                song = search_results[search_result_names.index(
+                    closest_match[0])]
+
+            videoId = song.get('videoId')
 
             data = await loop.run_in_executor(None, lambda: download_youtube_audio(f"https://www.youtube.com/watch?v={videoId}", download=not stream))
 
@@ -121,19 +133,6 @@ def get_videos_from_yt_playlist(url: str):
         return
     p = Playlist(url)
     return p.video_urls
-
-
-# def get_video_for_multiple(url: str):
-#     yt = YouTube(url)
-
-#     return {
-#         "url": yt.watch_url,
-#         "title": yt.title,
-#         "author": yt.author,
-#         "image_url": yt.thumbnail_url,
-#         "time": round(yt.length),
-#         "type": "youtube",
-#     }
 
 
 def search_multiple_video(query: str):

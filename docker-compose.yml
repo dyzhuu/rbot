@@ -1,0 +1,26 @@
+version: '3.3'
+services:
+  racoonbot:
+    build: .
+    container_name: racoon
+    restart: unless-stopped
+    environment:
+      - TOKEN=${TOKEN}
+      - API_KEY=${API_KEY}
+      - ENVIRONMENT=PRODUCTION
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - GUILD_ID=${GUILD_ID}
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+  autoheal:
+    restart: unless-stopped
+    image: willfarrell/autoheal
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+      - TZ=${TZ:-Pacific/Auckland}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - racoonbot

@@ -43,9 +43,8 @@ class DiscordClient(commands.Bot):
                     response = chatgpt_response(
                         message.content, self.memory[message.author.id])
                     await message.reply(response, mention_author=False)
-                print(self.memory)
+                print(self.memory[message.author.id])
 
-                """Truncate message history to decrease api token usage"""
                 if len(self.memory[message.author.id]) > MAX_MEMORY_SIZE:
                     self.memory[message.author.id] = self.memory[message.author.id][-MAX_MEMORY_SIZE:]
         except Exception as e:
