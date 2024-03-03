@@ -42,6 +42,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = deque()
+        self.download_queue = deque()
         self.loop_state = Loop.OFF
         self.past = None
         self.now_playing = None
@@ -115,6 +116,7 @@ class Music(commands.Cog):
 
     def clear_settings(self):
         self.queue = deque()
+        self.download_queue = deque()
         self.past = None
         self.now_playing = None
         self.playlist_videos = deque()
@@ -802,38 +804,31 @@ class Music(commands.Cog):
         await self.send_lyric_page(ctx)
 
     async def _download(self, ctx):
-        finished = False
-        while not finished:
+        self.download_queue = self.queue.copy()
+        while self.download_queue:
+            if not ctx.voice_client:
+                return
             await asyncio.sleep(0.3)
-            try:
-                state = self.queue[0]
-                for index, video_info in enumerate(self.queue):
-                    if not ctx.voice_client:
-                        return
-                    if "file" not in video_info or not os.path.exists(video_info["file"]):
-                        if video_info["type"] == "spotify":
-                            buffer = await YTDLSource.from_spotify(f"{video_info['title']}", loop=self.bot.loop)
-                            if not buffer:
-                                del self.queue[index]
-                                raise Exception('Download failed. Skipping...')
-                            elif buffer['time'] > 450:
-                                del self.queue[index]
-                                os.remove(buffer['file'])
-                                raise Exception('Song too long. Skipping...')
-                                updated_video_info = {
-                                    "url": video_info["song_url"],
-                                    "requested_user": f"<@{ctx.message.author.id}>",
-                                    **buffer
-                                }
-                                video_info.update(updated_video_info)
-                        else:
-                            filename = await YTDLSource.from_url_download_only(video_info["url"], loop=self.bot.loop)
-                            if not filename:
-                                del self.queue[index]
-                                raise Exception('Download failed. Skipping...')
-                            video_info["file"] = filename
-                    if self.queue[0] != state:
-                        raise Exception('Queue changed')
-                finished = True
-            except Exception as e:
-                print('ERROR:', e)
+            video_info = self.download_queue.popleft()
+            if "file" in video_info and os.path.exists(video_info["file"]):
+                continue
+            if video_info["type"] == "spotify":
+                buffer = await YTDLSource.from_spotify(f"{video_info['title']}", loop=self.bot.loop)
+                if not buffer:
+                    print('Download failed. Skipping...')
+                    continue
+                elif buffer['time'] > 450:
+                    os.remove(buffer['file'])
+                    print('Song too long. Skipping...')
+                updated_video_info = {
+                    "url": video_info["song_url"],
+                    "requested_user": f"<@{ctx.message.author.id}>",
+                    **buffer
+                }
+                video_info.update(updated_video_info)
+            else:
+                filename = await YTDLSource.from_url_download_only(video_info["url"], loop=self.bot.loop)
+                if not filename:
+                    print('Download failed. Skipping...')
+                    continue
+                video_info["file"] = filename
