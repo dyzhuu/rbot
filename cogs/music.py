@@ -802,8 +802,6 @@ class Music(commands.Cog):
         await self.send_lyric_page(ctx)
 
     async def _download(self, ctx):
-        if message:
-            await ctx.send("Downloading...")
         finished = False
         while not finished:
             await asyncio.sleep(0.3)
