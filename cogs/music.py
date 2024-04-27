@@ -15,12 +15,8 @@ from dotenv import load_dotenv
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
-from lib.constants import MAX_QUEUE_LENGTH, MAX_PLAYLIST_SONG_LENGTH
-
-from youtube_download import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
-from lib.utils import delete_audio, number_emojis, convert_seconds, time_string_to_seconds
-from spotify_api import get_recommended_song, get_videos_from_spotify_playlist, get_spotify_track, get_videos_from_spotify_album, search_album, search_playlist
-from lyrics import get_lyrics, split_lyric
+from services import *
+from lib import *
 
 load_dotenv()
 ENVIRONMENT = os.getenv('ENVIRONMENT')
