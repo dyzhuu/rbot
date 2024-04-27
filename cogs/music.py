@@ -1,22 +1,23 @@
-import discord
 import os
 import asyncio
-import aiohttp
 import random
-import requests
 import ctypes
 import math
-import re
 import time
-
-from collections import deque
-from discord.ext import commands
-from dotenv import load_dotenv
 from concurrent.futures.thread import ThreadPoolExecutor
+from collections import deque
 from enum import Enum
 
-from services import *
-from lib import *
+from dotenv import load_dotenv
+import discord
+from discord.ext import commands
+import requests
+
+from lib.constants import MAX_QUEUE_LENGTH, MAX_PLAYLIST_SONG_LENGTH
+from lib.utils import delete_audio, number_emojis, convert_seconds, time_string_to_seconds
+from lib.lyrics import get_lyrics
+from services.spotify import search_album, search_playlist, get_videos_from_spotify_playlist, get_videos_from_spotify_album, get_spotify_track
+from services.youtube import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
 
 load_dotenv()
 ENVIRONMENT = os.getenv('ENVIRONMENT')
@@ -48,11 +49,9 @@ class Music(commands.Cog):
         self.start_time = None
         self.is_seek = False
         self.is_skip = False
-        self.autoplay = False
-        self.history = deque()
 
     def play_next(self, ctx):
-        voice = set()
+        voice_client = ctx.voice_client
         for v in ctx.guild.voice_channels:  # if the bot is the only one left in the channel, disconnect
             if self.bot.user in v.members and len(v.members) == 1:
                 self.clear_settings()
@@ -61,8 +60,6 @@ class Music(commands.Cog):
                 return
 
         self.past = self.now_playing
-        if len(self.history) > 5:
-            self.history.pop()
 
         if self.is_seek:  # if play is called with seek, don't play next song
             self.is_seek = False
@@ -81,8 +78,6 @@ class Music(commands.Cog):
 
         if self.is_skip:
             self.is_skip = False
-        else:
-            self.history.appendleft(self.now_playing)
 
         self.now_playing = None
 
@@ -105,10 +100,6 @@ class Music(commands.Cog):
             self.start_time = self.bot.loop.time()
             asyncio.run_coroutine_threadsafe(
                 self._now_playing(ctx), self.bot.loop)
-        elif len(self.queue) <= 1 and self.autoplay:
-            video = get_recommended_song(self.history)
-            asyncio.run_coroutine_threadsafe(
-                self._play(ctx, video, self.bot.loop))
         else:
             asyncio.run_coroutine_threadsafe(
                 self.sleep_and_disconnect(voice_client), loop=self.bot.loop)
@@ -131,7 +122,6 @@ class Music(commands.Cog):
         self.start_time = None
         self.is_seek = False
         self.is_skip = False
-        self.history = deque()
         delete_audio()
 
     @commands.command(name='join', help='Joins your current voice channel', usage='join')
@@ -358,7 +348,7 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title="Added to queue", description=f'**[{song_file["title"]}]({song_file["url"]})**\n`[{convert_seconds(song_file["time"])}]`')
             embed.set_image(url=song_file["image_url"])
-            embed.set_footer(text=f'#1 in queue')
+            embed.set_footer(text='#1 in queue')
             await ctx.send(embed=embed)
 
     @commands.command(name='pause', help='Pauses the song', usage='pause')
@@ -418,15 +408,15 @@ class Music(commands.Cog):
         else:
             if self.loop_state == Loop.ON:
                 embed = discord.Embed(
-                    title=f"Looping is disabled.",
+                    title="Looping is disabled.",
                     description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
             elif self.loop_state == Loop.OFF:
                 embed = discord.Embed(
-                    title=f"Looping is enabled.",
+                    title="Looping is enabled.",
                     description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
             else:
                 embed = discord.Embed(
-                    title=f"Looping is set to one.",
+                    title="Looping is set to one.",
                     description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
             await ctx.send(embed=embed)
 
@@ -455,7 +445,7 @@ class Music(commands.Cog):
         if page < top_page:
             await queue_message.add_reaction("▶️")
 
-        def check(reaction, user):
+        def check(reaction):
             return reaction.message.id == queue_message.id and str(reaction.emoji) in "◀️▶️"
 
         try:
@@ -692,11 +682,6 @@ class Music(commands.Cog):
             if not ctx.voice_client.is_playing():
                 await ctx.send(f"Replaying **{self.past['title']}**")
             await self._play(ctx, self.past["url"])
-
-    @commands.command(name='autoplay', help='Toggles autoplay', aliases=['ap'], usage='autoplay')
-    async def _autoplay(self, ctx):
-        self.autoplay = not self.autoplay
-        await ctx.send(f"Autoplay is now {'enabled' if self.autoplay else 'disabled'}")
 
     async def send_lyric_page(self, ctx, page=1, message=None, sent_lyrics=None):
         if sent_lyrics:

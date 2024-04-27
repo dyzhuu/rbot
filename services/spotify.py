@@ -1,7 +1,6 @@
 import tekore as tk
 import random
 import os
-import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,22 +11,6 @@ CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 app_token = tk.request_client_token(CLIENT_ID, CLIENT_SECRET)
 
 spotify = tk.Spotify(app_token)
-
-
-def get_recommended_song(history):
-    query_list = [song['title'] for song in history]
-    track_ids = [spotify.search(
-        query=query, types=['track'], limit=1)[0].items[0].id for query in query_list]
-
-    recommendations = spotify.recommendations(
-        track_ids=track_ids, limit=5).tracks
-
-    filtered_recommendations = list(
-        filter(lambda t: t.popularity > 15, recommendations))
-
-    random.shuffle(filtered_recommendations)
-    track = filtered_recommendations[0]
-    return f"{track.name} {track.artists[0].name}"
 
 
 def get_videos_from_spotify_playlist(spotify_url: str):

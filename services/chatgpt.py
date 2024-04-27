@@ -11,9 +11,8 @@ prompt_path = os.path.join(path, "prompt.txt")
 
 
 if not os.path.exists(prompt_path):
-    raise Exception('No prompt.txt file found')
+    raise FileNotFoundError('No prompt.txt file found')
 
-"""Enter custom system prompt to change the bot's personality"""
 with open(prompt_path, 'r') as file:
     SYSTEM_PROMPT = file.read().replace('\n', ' ')
 

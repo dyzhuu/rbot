@@ -1,4 +1,5 @@
 import os
+import re
 
 number_emojis = {
     0: "1️⃣",
@@ -21,7 +22,7 @@ def delete_audio(exclude: str = ''):
 def convert_seconds(seconds: int):
     units = {"hours": 3600, "minutes": 60, "seconds": 1}
     values = []
-    for unit, value in units.items():
+    for value in units.values():
         count = seconds // value
         seconds -= count * value
         values.append(count)

@@ -1,17 +1,9 @@
 import yt_dlp
 import discord
-import re
-import os
-import requests
-from dotenv import load_dotenv
-from pytube import YouTube, Search, Playlist, extract
+from pytube import YouTube, Search, Playlist
 import asyncio
-import aiohttp
 import time
 import difflib
-
-from helper import convert_seconds
-from spotify_api import get_videos_from_spotify_album
 
 from ytmusicapi import YTMusic
 
