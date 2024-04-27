@@ -3,7 +3,6 @@ import requests
 from urllib.parse import quote_plus
 import re
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 

@@ -15,7 +15,7 @@ import requests
 
 from lib.constants import MAX_QUEUE_LENGTH, MAX_PLAYLIST_SONG_LENGTH
 from lib.utils import delete_audio, number_emojis, convert_seconds, time_string_to_seconds
-from lib.lyrics import get_lyrics
+from lib.lyrics import get_lyrics, split_lyric
 from services.spotify import search_album, search_playlist, get_videos_from_spotify_playlist, get_videos_from_spotify_album, get_spotify_track
 from services.youtube import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
 
