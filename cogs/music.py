@@ -743,12 +743,13 @@ class Music(commands.Cog):
                 return
             await self.send_lyric_page(ctx, sent_lyrics=lyrics)
             return
+
         if not self.now_playing:
             await ctx.send("Nothing is currently playing. Use y!play to play a song")
             return
+
         if "lyrics" not in self.now_playing:
             async with ctx.typing():
-                print(self.now_playing)
                 if self.now_playing['type'] == "spotify":
                     song_name = self.now_playing['title']
                     lyrics = await self.bot.loop.run_in_executor(

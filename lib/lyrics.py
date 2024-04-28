@@ -22,62 +22,57 @@ def split_lyric(lyric):
     return [lyric]
 
 
-# def get_lyrics1(song_name):  # genius
-#     try:
-#         song_name = re.sub(r"\([^()]*\)", "", song_name)
-#         song_name = re.sub(r'[^\w\s]', ' ', song_name)
+def get_lyrics(song_name):  # genius
+    try:
+        song_name = re.sub(r"\([^()]*\)", "", song_name)
+        song_name = re.sub(r'[^\w\s]', ' ', song_name)
 
-#         name = quote_plus(f"{song_name} site:genius.com")
-#         hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11'
-#                '(KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
-#                'Accept-Language': 'en-US,en;q=0.8',
-#                'Connection': 'keep-alive'}
+        name = quote_plus(f"{song_name} site:genius.com")
+        hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11'
+               '(KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+               'Accept-Language': 'en-US,en;q=0.8',
+               'Connection': 'keep-alive'}
 
-#         url = 'http://www.google.com/search?q=' + name
+        url = 'http://www.google.com/search?q=' + name
 
-#         print(url)
+        print(url)
 
-#         result = requests.get(url, headers=hdr).text
+        result = requests.get(url, headers=hdr).text
 
-#         link_start = result.find('https://genius.com')
+        link_start = result.find('https://genius.com')
 
-#         if (link_start == -1):
-#             print('Lyric: link start not found')
-#             return
+        if (link_start == -1):
+            print('Lyric: link start not found')
+            return
 
-#         link_end = result.find('&amp;', link_start + 1)
+        link_end = result.find('&amp;', link_start + 1)
 
-#         url = result[link_start:link_end]
+        url = result[link_start:link_end]
 
-#         print('Lyrics url:', url)
+        print('Lyrics url:', url)
 
-#         song_html = requests.get(url).content
+        song_html = requests.get(url).content
 
-#         print(song_html)
+        soup = BeautifulSoup(song_html, 'lxml')
 
-#         soup = BeautifulSoup(song_html, 'lxml')
+        lyrics = []
+        for tag in soup.select('div[class^="Lyrics__Container"], .song_body-lyrics p'):
+            t = tag.get_text(strip=True, separator='\n')
+            t = t.replace('(\n', '(')
+            t = t.replace('\n)', ')')
+            t = t.replace('\n]', ']')
+            t = t.replace('[\n', '[')
+            t = t.replace('\n,', ',')
+            t = t.replace(',\n', ', ')
+            if t:
+                lyrics.append(t)
 
-#         print(soup)
-
-#         lyrics = []
-#         for tag in soup.select('div[class^="Lyrics__Container"], .song_body-lyrics p'):
-#             t = tag.get_text(strip=True, separator='\n')
-#             t = t.replace('(\n', '(')
-#             t = t.replace('\n)', ')')
-#             t = t.replace('\n]', ']')
-#             t = t.replace('[\n', '[')
-#             t = t.replace('\n,', ',')
-#             t = t.replace(',\n', ', ')
-#             if t:
-#                 lyrics.append(t)
-#             print(t)
-
-#         return lyrics
-#     except Exception as e:
-#         print("Lyrics error:", e)
+        return lyrics
+    except Exception as e:
+        print("Lyrics error:", e)
 
 
-def get_lyrics(song_name):  # letras
+def get_lyrics1(song_name):  # letras
     try:
         song_name = re.sub(r"\([^()]*\)", "", song_name)
         song_name = re.sub(r'[^\w\s]', ' ', song_name)
