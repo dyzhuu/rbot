@@ -44,13 +44,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
         super().__init__(source, volume)
         self.data = data
         self.title = data.get('title')
-        self.url = ""
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
+    async def from_url(cls, url, *, loop=None):
         try:
             loop = loop or asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, lambda: download_youtube_audio(url, download=not stream))
+            data = await loop.run_in_executor(None, lambda: download_youtube_audio(url, download=True))
 
             return {
                 "file": ytdl.prepare_filename(data),
