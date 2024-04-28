@@ -10,7 +10,7 @@ from ytmusicapi import YTMusic
 ydl_opts = {
     'format': 'bestaudio/best',
     'merge_output_format': 'opus',
-    'outtmpl': "./audio/%(id)s.opus",
+    'outtmpl': "./lib/audio/%(id)s.opus",
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
