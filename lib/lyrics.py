@@ -2,9 +2,8 @@ from bs4 import BeautifulSoup
 import requests
 from urllib.parse import quote_plus
 import re
-from dotenv import load_dotenv
-
-load_dotenv()
+from typing import List
+from models.Exceptions import LyricNotFoundException
 
 
 def split_lyric(lyric):
@@ -22,48 +21,39 @@ def split_lyric(lyric):
     return [lyric]
 
 
-def get_lyrics(song_name):  # genius
+def get_lyrics(self, song_name: str) -> List[str]:  # genius
+    song_name = re.sub(r"\([^()]*\)", "", song_name)
+    song_name = re.sub(r'[^\w\s]', ' ', song_name)
+    hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11'
+           '(KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+           'Accept-Language': 'en-US,en;q=0.8',
+           'Connection': 'keep-alive'}
+    name = quote_plus(f"{song_name} site:genius.com")
+    url = 'http://www.google.com/search?q=' + name
+
     try:
-        song_name = re.sub(r"\([^()]*\)", "", song_name)
-        song_name = re.sub(r'[^\w\s]', ' ', song_name)
-
-        name = quote_plus(f"{song_name} site:genius.com")
-        hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11'
-               '(KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
-               'Accept-Language': 'en-US,en;q=0.8',
-               'Connection': 'keep-alive'}
-
-        url = 'http://www.google.com/search?q=' + name
-
-        print(url)
-
         result = requests.get(url, headers=hdr).text
 
         link_start = result.find('https://genius.com')
 
         if (link_start == -1):
-            print('Lyric: link start not found')
-            return
-
+            raise LyricNotFoundException('Link start not found')
         link_end = result.find('&amp;', link_start + 1)
 
-        url = result[link_start:link_end]
-
-        print('Lyrics url:', url)
+        self.url = result[link_start:link_end]
 
         song_html = requests.get(url).content
-
         soup = BeautifulSoup(song_html, 'lxml')
 
         lyrics = []
         for tag in soup.select('div[class^="Lyrics__Container"], .song_body-lyrics p'):
             t = tag.get_text(strip=True, separator='\n')
-            t = t.replace('(\n', '(')
-            t = t.replace('\n)', ')')
-            t = t.replace('\n]', ']')
-            t = t.replace('[\n', '[')
-            t = t.replace('\n,', ',')
-            t = t.replace(',\n', ', ')
+            t = t.replace('(\n', '(') \
+                .replace('\n)', ')') \
+                .replace('\n]', ']') \
+                .replace('[\n', '[') \
+                .replace('\n,', ',') \
+                .replace(',\n', ', ')
             if t:
                 lyrics.append(t)
 

@@ -2,18 +2,12 @@ from enum import Enum
 # from typing import List
 from abc import ABC, abstractmethod
 
+from services.YTDL import YTDLSource
+
 
 class SongType(Enum):
     SPOTIFY = 1
     YOUTUBE = 2
-
-
-# "title": f"{track.name} - {track.artists[0].name}",
-# "album": track.album.name,
-# "url": f"{track.name} - {track.artists[0].name}",
-# "image_url": track.album.images[0].url,
-# "song_url": track.external_urls['spotify'],
-# "type": "spotify"
 
 
 class Song(ABC):
@@ -26,20 +20,35 @@ class Song(ABC):
         self.image_url = image_url
         self.requested_user = requested_user
         self.song_type = song_type
+        self.start_time = None
 
     @abstractmethod
-    def download(self):
+    async def download(self):
         pass
 
 
 class YoutubeSong(Song):
-    def __init__(self, file: str, time: float, url: str, title: str, image_url: str, requested_user: str, author: str):
+    def __init__(self, time: float, url: str, title: str, image_url: str, author: str, file: str = None, requested_user: str = None):
         super().__init__(file, time, url, title, image_url, requested_user, SongType.YOUTUBE)
         self.author = author
 
+    async def download(self):
+        self.file = (await YTDLSource.from_url(self.url))["file"]
+
+    def __str__(self):
+        return f"{self.title} - {self.author}"
+
 
 class SpotifySong(Song):
-    def __init__(self, file: str, time: float, url: str, title: str, image_url: str, requested_user: str, album: str, artist: str):
+    def __init__(self, url: str, title: str, image_url: str, album: str, artist: str, file: str = None, time: float = None, requested_user: str = None):
         super().__init__(file, time, url, title, image_url, requested_user, SongType.SPOTIFY)
         self.album = album
         self.artist = artist
+
+    async def download(self, loop=None):
+        data = await YTDLSource.from_name(self.__str__(), loop=loop)
+        self.file = data["file"]
+        self.time = data["time"]
+
+    def __str__(self):
+        return f"{self.title} - {self.artist}"

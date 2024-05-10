@@ -1,23 +1,23 @@
 import os
 import asyncio
-import random
 import ctypes
 import math
 import time
-from concurrent.futures.thread import ThreadPoolExecutor
-from collections import deque
-from enum import Enum
 
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
 import requests
 
-from lib.constants import MAX_QUEUE_LENGTH, MAX_PLAYLIST_SONG_LENGTH
+from lib.constants import MAX_QUEUE_LENGTH
 from lib.utils import delete_audio, number_emojis, convert_seconds_to_timestamp, time_string_to_seconds
 from lib.lyrics import get_lyrics, split_lyric
-from services.spotify import search_album, search_playlist, get_videos_from_spotify_playlist, get_spotify_album_tracks, get_spotify_track
-from services.youtube import YTDLSource, get_youtube_video, get_videos_from_yt_playlist, search_multiple_video
+from services.youtube import search_multiple_video
+from services.YTDL import YTDLSource
+
+from models.MusicPlayer import MusicPlayer
+from models.Enums import Loop
+from models.Exceptions import MessageException
 
 load_dotenv()
 ENVIRONMENT = os.getenv('ENVIRONMENT')
@@ -31,50 +31,38 @@ if not discord.opus.is_loaded():
     discord.opus.load_opus(opus_path)
 
 
-class Loop(Enum):
-    OFF = 1,
-    ON = 2,
-    ONE = 3
-
-
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queue = deque()
-        self.download_queue = deque()
-        self.loop_state = Loop.OFF
-        self.past = None
         self.now_playing = None
-        self.playlist_videos = deque()
+        self.player = MusicPlayer(bot)
         self.start_time = None
         self.is_seek = False
         self.is_skip = False
 
-    def play_next(self, ctx):
+    async def play_next(self, ctx):
         voice_client = ctx.voice_client
         for v in ctx.guild.voice_channels:  # if the bot is the only one left in the channel, disconnect
             if self.bot.user in v.members and len(v.members) == 1:
                 self.clear_settings()
-                asyncio.run_coroutine_threadsafe(
-                    ctx.voice_client.disconnect(), self.bot.loop)
-                return
-
-        self.past = self.now_playing
+                ctx.voice_client.disconnect()
 
         if self.is_seek:  # if play is called with seek, don't play next song
             self.is_seek = False
             return
 
+        self.past = self.now_playing
+
         in_voice_channel = ctx.voice_client
         if not in_voice_channel:  # if the bot is not in a voice channel, return
             return
 
-        if self.loop_state == Loop.OFF and self.now_playing not in self.queue and os.path.exists(self.now_playing["file"]):
-            os.remove(self.now_playing["file"])
-        if self.loop_state == Loop.ON and not self.is_skip:
-            self.queue.append(self.now_playing)
-        elif self.loop_state == Loop.ONE and not self.is_skip:
-            self.queue.appendleft(self.now_playing)
+        # if self.loop_state == Loop.OFF and self.now_playing not in self.queue and os.path.exists(self.now_playing["file"]):
+        #     os.remove(self.now_playing["file"])
+        # if self.loop_state == Loop.ON and not self.is_skip:
+        #     self.queue.append(self.now_playing)
+        # elif self.loop_state == Loop.ONE and not self.is_skip:
+        #     self.queue.appendleft(self.now_playing)
 
         if self.is_skip:
             self.is_skip = False
@@ -82,27 +70,13 @@ class Music(commands.Cog):
         self.now_playing = None
 
         if self.queue:  # if queue is not empty, play next song
-            # TODO: Better implementation for buffer
-            counter = 0
-            while "file" not in self.queue[0] or not os.path.exists(self.queue[0]["file"]):
-                counter += 1
-                if counter > 75:
-                    asyncio.run_coroutine_threadsafe(
-                        self._download(ctx), self.bot.loop)
-                    self.now_playing = self.past
-                    self.play_next(ctx)
-                    return
-                time.sleep(0.2)
-
             self.now_playing = self.queue.popleft()
             voice_client.play(discord.FFmpegPCMAudio(
-                source=self.now_playing["file"], executable="./ffmpeg"), after=lambda e: self.play_next(ctx))
+                source=self.now_playing["file"], executable="./ffmpeg"), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
             self.start_time = self.bot.loop.time()
-            asyncio.run_coroutine_threadsafe(
-                self._now_playing(ctx), self.bot.loop)
+            await self._now_playing(ctx)
         else:
-            asyncio.run_coroutine_threadsafe(
-                self.sleep_and_disconnect(voice_client), loop=self.bot.loop)
+            self.sleep_and_disconnect(voice_client)
 
     # disconnects if the bot is idle for 5 minutes
     async def sleep_and_disconnect(self, voice_client):
@@ -112,17 +86,6 @@ class Music(commands.Cog):
                 return
         self.clear_settings()
         await voice_client.disconnect()
-
-    def clear_settings(self):
-        self.queue = deque()
-        self.download_queue = deque()
-        self.past = None
-        self.now_playing = None
-        self.playlist_videos = deque()
-        self.start_time = None
-        self.is_seek = False
-        self.is_skip = False
-        delete_audio()
 
     @commands.command(name='join', help='Joins your current voice channel', usage='join')
     async def _join(self, ctx):
@@ -147,159 +110,44 @@ class Music(commands.Cog):
                 channel = ctx.message.author.voice.channel
                 await channel.connect()
             else:
-                await ctx.send("You're not connected to a voice channel")
-                return
+                return await ctx.send("You're not connected to a voice channel")
 
-        if len(self.queue) > MAX_QUEUE_LENGTH:
-            await ctx.send("Too many songs in the queue!")
-            return
+        if len(self.player.queue) > MAX_QUEUE_LENGTH:
+            return await ctx.send("Too many songs in the queue!")
 
         if not args:
             embed = discord.Embed(
                 description="**Usage:**\n- `play <song name or url>`\n- `play [album | playlist] <album/playlist name>`", color=discord.Colour.red())
-            await ctx.send(embed=embed)
-            return
+            return await ctx.send(embed=embed)
 
-        if args[0] == "album":  # play album
-            if len(args) == 1:
-                embed = discord.Embed(
-                    description="**Usage:** `play album <album name>`", color=discord.Colour.red())
-                await ctx.send(embed=embed)
-                return
-            album_name = " ".join(args[1:])
-            title, url = search_album(album_name)
-            await ctx.send(f"playing **[{title}]({url})**")
-        elif args[0] == "playlist":  # play playlist
-            if len(args) == 1:
-                embed = discord.Embed(
-                    description="**Usage:** `play playlist <playlist name>`", color=discord.Colour.red())
-                await ctx.send(embed=embed)
-                return
-            playlist_name = " ".join(args[1:])
-            title, url = search_playlist(playlist_name)
-            await ctx.send(f"playing **[{title}]({url})**")
-        elif 'spotify.link' in args[0]:
-            url = requests.get(args[0]).url
-        else:
-            url = " ".join(args)
-        if not url.startswith("https"):
-            url = f"ytsearch:{url}"
-        voice_client = ctx.voice_client
-
-        playlist_videos = deque()
-
-        def get_video_info(ctx, video_url):
-            video_info = {
-                **get_youtube_video(video_url),
-                "requested_user": f"<@{ctx.message.author.id}>"
-            }
-            return video_info
-
-        if "com/playlist" in url or "com/album" in url:
-            loading_embed = discord.Embed(
-                title="Loading songs...")
-            loading_message = await ctx.send(embed=loading_embed)
-            # downloads the first video
-            if "spotify" in url:
-                if "playlist" in url:
-                    playlist_videos.extend(
-                        get_spotify_album_tracks(url))
-                elif "album" in url:
-                    playlist_videos.extend(
-                        get_spotify_album_tracks(url))
-                if not playlist_videos:
-                    await loading_message.delete()
-                    await ctx.send("Result not found")
-                    return
-                if len(playlist_videos) + len(self.queue) > 500:
-                    await loading_message.delete()
-                    await ctx.send("Too many songs in the queue!")
-                    return
-                playlist_video = playlist_videos.popleft()
-                self.queue.append({
-                    **await YTDLSource.from_spotify(f"{playlist_video['title']} {playlist_video['album']}", loop=self.bot.loop),
-                    "url": playlist_video["song_url"],
-                    "title": playlist_video["title"],
-                    "image_url": playlist_video["image_url"],
-                    "requested_user": f"<@{ctx.message.author.id}>",
-                    "type": "spotify"
-                })
-                self.queue.extend(playlist_videos)
+        async with ctx.typing():
+            if not args[0].startswith("http"):
+                await self.player.add_song_by_name(ctx, ' '.join(args))
             else:
-                playlist_videos.extend(get_videos_from_yt_playlist(url))
-                if not playlist_videos:
-                    await loading_message.delete()
-                    await ctx.send("Result not found")
-                    return
-                if len(playlist_videos) + len(self.queue) > 500:
-                    await loading_message.delete()
-                    await ctx.send("Too many songs in the queue!")
-                    return
-                playlist_video = playlist_videos.popleft()
-                self.queue.append({
-                    **await YTDLSource.from_url(playlist_video, loop=self.bot.loop),
-                    "requested_user": f"<@{ctx.message.author.id}>"
-                })
-                with ThreadPoolExecutor() as executor:
-                    video_info_list = list(executor.map(
-                        lambda u: get_video_info(ctx, u), playlist_videos))
-                self.queue.extend(
-                    filter(lambda v: v['time'] < MAX_PLAYLIST_SONG_LENGTH, video_info_list))
-            await loading_message.delete()
-            embed = discord.Embed(
-                title="Added to queue", description=f'**{len(playlist_videos) + 1} songs**')
-            await ctx.send(embed=embed)
-        else:  # run on regular url -- downloads video and adds to queue
-            async with ctx.typing():
-                if "spotify" in url:
-                    spotify_track = get_spotify_track(url)
-                    if not spotify_track:
-                        await ctx.send("Invalid URL")
-                        return
-                    spotify_track["url"] = spotify_track["song_url"]
-                    self.queue.append({
-                        **spotify_track,
-                        **await YTDLSource.from_spotify(f"{spotify_track['title']}", loop=self.bot.loop),
-                        "requested_user": f"<@{ctx.message.author.id}>"
-                    })
+                url = args[0]
+                if 'spotify.link' in url:
+                    url = requests.get(url).url
+                if "com/playlist" in url or "com/album" in url:
+                    loading_embed = discord.Embed(
+                        title="Loading songs...")
+                    try:
+                        loading_message = await ctx.send(embed=loading_embed)
+                        if "spotify" in url:
+                            await self.player.add_spotify_playlist_or_album(ctx, url)
+                        else:
+                            await self.player.add_youtube_playlist(ctx, url)
+                    except MessageException as e:  # TODO: custom exception thrown by ^
+                        await ctx.send(e)
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        await loading_message.delete()
                 else:
-                    self.queue.append({
-                        **await YTDLSource.from_url(url, loop=self.bot.loop),
-                        "requested_user": f"<@{ctx.message.author.id}>"
-                    })
+                    await self.player.add_song_by_url(ctx, url)
 
-        # if the bot is not playing anything, play the first song in the queue
-        if not voice_client.is_playing() and not voice_client.is_paused():
-            song_file = self.queue.popleft()
-            self.now_playing = song_file
-            if "file" not in song_file:
-                async with ctx.typing():
-                    if song_file['type'] == "spotify":
-                        song_file.update({
-                            **await YTDLSource.from_url(url=(self.queue[0]["title"]+""), loop=self.bot.loop),
-                            "requested_user": f"<@{ctx.message.author.id}>"
-                        })
-                    else:
-                        song_file.update({
-                            **await YTDLSource.from_url(self.queue[0]["url"], loop=self.bot.loop),
-                            "requested_user": f"<@{ctx.message.author.id}>"
-                        })
-            voice_client.play(discord.FFmpegPCMAudio(
-                source=song_file["file"], executable="./ffmpeg"), after=lambda e: self.play_next(ctx))
-            self.start_time = self.bot.loop.time()
-            await self._now_playing(ctx)
-        elif "com/playlist" not in url:
-            song_file = self.queue[-1]
-            embed = discord.Embed(
-                title="Added to queue", description=f'**[{song_file["title"]}]({song_file["url"]})**\n`[{convert_seconds_to_timestamp(song_file["time"])}]`')
-            embed.set_image(url=song_file["image_url"])
-            embed.set_footer(text=f'#{len(self.queue)} in queue')
-            await ctx.send(embed=embed)
+        await self.player.play(ctx)
 
-        if "com/playlist" not in url and "com/album" not in url:
-            return
-        await self._download(ctx)
-
+# TODO:
     @commands.command(name='playtop', help='Adds a song to the top of the queue', aliases=['pt'], usage='playtop <song name or url>')
     async def _play_top(self, ctx, *args):
         if not ctx.voice_client:
@@ -307,68 +155,34 @@ class Music(commands.Cog):
                 channel = ctx.message.author.voice.channel
                 await channel.connect()
             else:
-                await ctx.send("You're not connected to a voice channel")
-                return
+                return await ctx.send("You're not connected to a voice channel")
 
-        if len(self.queue) > 500:
-            await ctx.send("Too many songs in the queue!")
-            return
+        if len(self.player.queue) > MAX_QUEUE_LENGTH:
+            return await ctx.send("Too many songs in the queue!")
 
         if not args:
             embed = discord.Embed(
                 description="**Usage:** `playtop <song name or url>`", color=discord.Colour.red())
-            await ctx.send(embed=embed)
-            return
-        url = " ".join(args)
-        if len(args) > 1:
-            url = f"ytsearch:{url}"
+            return await ctx.send(embed=embed)
 
-        voice_client = ctx.voice_client
-
-        if "com/playlist" in url or "com/album" in url:
-            await ctx.send("Cannot play playlists with `playtop`")
-            return
-
-        async with ctx.typing():
-            self.queue.appendleft({
-                **await YTDLSource.from_url(url, loop=self.bot.loop),
-                "requested_user": f"<@{ctx.message.author.id}>"
-            })
-
-        if not ctx.voice_client.is_playing() and len(self.queue) <= 1:
-            song_file = self.queue.popleft()
-            self.now_playing = song_file
-
-            voice_client.play(discord.FFmpegPCMAudio(
-                source=song_file["file"], executable="./ffmpeg"), after=lambda e: self.play_next(ctx))
-            self.start_time = self.bot.loop.time()
-            await self._now_playing(ctx)
+        query = " ".join(args)
+        if not query.startswith("http"):
+            await self.player.add_song_by_name(ctx, query)
+        elif "com/playlist" in query or "com/album" in query:
+            return await ctx.send("Cannot play playlists with `playtop`")
         else:
-            song_file = self.queue[0]
-            embed = discord.Embed(
-                title="Added to queue", description=f'**[{song_file["title"]}]({song_file["url"]})**\n`[{convert_seconds_to_timestamp(song_file["time"])}]`')
-            embed.set_image(url=song_file["image_url"])
-            embed.set_footer(text='#1 in queue')
-            await ctx.send(embed=embed)
+            await self.player.add_song_by_url(ctx, query)
 
-    @commands.command(name='pause', help='Pauses the song', usage='pause')
-    async def _pause(self, ctx):
-        voice_client = ctx.voice_client
-        if voice_client.is_playing():
-            voice_client.pause()
-            await ctx.send("Music is now paused")
-        else:
-            await ctx.send("Nothing is currently playing. Use y!play to play a song")
+        await self.player.play(ctx)
 
-    @commands.command(name='resume', help='Resumes the song', usage='resume')
-    async def _resume(self, ctx):
-        voice_client = ctx.voice_client
-        if voice_client.is_paused():
-            voice_client.resume()
-            await ctx.send("Music is now resumed")
-        else:
-            await ctx.send("Nothing is currently playing. Use y!play to play a song")
+        song_file = self.queue[0]
+        embed = discord.Embed(
+            title="Added to queue", description=f'**[{song_file["title"]}]({song_file["url"]})**\n`[{convert_seconds_to_timestamp(song_file["time"])}]`')
+        embed.set_image(url=song_file["image_url"])
+        embed.set_footer(text='#1 in queue')
+        await ctx.send(embed=embed)
 
+# TODO:
     @commands.command(name='skip', help='Skips the song, or skips to a specific song', usage='skip | skip <position in queue>')
     async def _skip(self, ctx, number: int = 1):
         self.is_skip = True
@@ -394,6 +208,7 @@ class Music(commands.Cog):
         await ctx.send(f"skipped **{self.now_playing['title']}**")
         voice_client.stop()
 
+# TODO:
     @commands.command(name='loop', help='Loops the queue', aliases=['repeat'], usage='loop [on | off | one]')
     async def _loop(self, ctx, setting=None):
         if setting == "off":
@@ -420,6 +235,7 @@ class Music(commands.Cog):
                     description="Use `loop [on | off | one]` to change.", color=discord.Colour.red())
             await ctx.send(embed=embed)
 
+# TODO:
     async def send_queue_page(self, ctx, page, queue_message=None):
         queue_length = len(self.queue)
         top_page = math.ceil(len(self.queue)/20)
@@ -460,6 +276,7 @@ class Music(commands.Cog):
             if queue_message:
                 await queue_message.clear_reactions()
 
+# TODO:
     @commands.command(name='queue', help='Shows the current queue', aliases=['q'], usage='queue | queue <page number>')
     async def _queue_command(self, ctx, page: int = 1):
         if (self.queue and page > math.ceil(len(self.queue)/20)) or page < 1:
@@ -467,20 +284,17 @@ class Music(commands.Cog):
             return
         await self.send_queue_page(ctx, page)
 
+# TODO:
     @commands.command(name='find', help='Finds a song from the queue', usage='find <name of song>')
     async def _find(self, ctx, query):
         if len(self.queue) == 0:
-            await ctx.send("Queue is empty")
-            return
-        found = False
+            return await ctx.send("Queue is empty")
         for index, song in enumerate(self.queue):
             if query.lower().replace(' ', '') in song["title"].lower().replace(' ', ''):
-                await ctx.send(f"**{song['title']}** is at position **{index+1}** in the queue")
-                found = True
-                break
-        if not found:
-            await ctx.send("Song not found")
+                return await ctx.send(f"**{song['title']}** is at position **{index+1}** in the queue")
+        return await ctx.send("Song not found")
 
+# TODO:
     @commands.command(name='remove', help='Removes a song from the queue', aliases=['rm'], usage='remove <position in queue>')
     async def _remove(self, ctx, index):
         if len(self.queue) == 0:
@@ -503,6 +317,7 @@ class Music(commands.Cog):
         del self.queue[index - 1]
         await ctx.send(f"removed **{song_file['title']}** from the queue")
 
+# TODO:
     @commands.command(name='clear', help='Clears the queue', aliases=['c'], usage='clear')
     async def _clear(self, ctx):
         self.queue.clear()
@@ -515,11 +330,12 @@ class Music(commands.Cog):
 
     @commands.command(name='shuffle', help='Shuffles the queue', usage='shuffle')
     async def _shuffle(self, ctx):
-        if len(self.queue) <= 1 or not self.now_playing or not ctx.voice_client.is_playing():
+        if not ctx.voice_client.is_playing() or len(self.player.queue) <= 1:
             return
-        random.shuffle(self.queue)
+        self.player.queue.shuffle()
         await ctx.send("Queue shuffled")
 
+    # TODO:
     @commands.command(name='search', help='Searches for a song and shows multiple options to choose from', usage='search <song name>')
     async def _search(self, ctx, *args):
         if len(self.queue) > 500:
@@ -567,23 +383,11 @@ class Music(commands.Cog):
 
     @commands.command(name='nowplaying', help='Shows the currently playing song', aliases=['np'], usage='nowplaying')
     async def _now_playing(self, ctx):
-        if not ctx.voice_client:
-            await ctx.send("I'm not in a voice channel")
-        if self.now_playing:
-            time_elapsed = convert_seconds_to_timestamp(
-                round(self.bot.loop.time() - self.start_time))
-            embed = discord.Embed(
-                title="Now Playing", description=f'**[{self.now_playing["title"]}]({self.now_playing["url"]})**\n`[{time_elapsed} / {convert_seconds_to_timestamp(self.now_playing["time"])}]`')
-            if "requested_user" in self.now_playing:
-                embed.add_field(
-                    name="", value=f"Requested by: {self.now_playing['requested_user']}")
-            embed.set_image(url=self.now_playing["image_url"])
-            if self.queue:
-                embed.set_footer(text=f'Up next: {self.queue[0]["title"]}')
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send("Nothing is currently playing. Use y!play to play a song")
+        if not self.player.now_playing:
+            return await ctx.send("Nothing is currently playing. Use y!play to play a song")
+        await self.player.send_now_playing(ctx)
 
+    # TODO:
     @commands.command(name='seek', help='Seeks to a specific time in the song', usage='seek <duration>', extras={'example': ['`seek 1m 30s`']})
     async def _seek(self, ctx, *args):
         voice_client = ctx.voice_client
@@ -617,9 +421,10 @@ class Music(commands.Cog):
         self.start_time = self.bot.loop.time() - seek_time_seconds
 
         voice_client.play(discord.FFmpegPCMAudio(executable="./ffmpeg", source=self.now_playing["file"],
-                                                 before_options=ffmpeg_options), after=lambda e: self.play_next(ctx))
+                                                 before_options=ffmpeg_options), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
         await ctx.send(f"Seeked to `{convert_seconds_to_timestamp(seek_time_seconds)}`")
 
+    # TODO:
     @commands.command(name='scrub', help='Fast forward/back by x seconds, prepend with \'-\' to go back', aliases=['ff'], usage='scrub <duration> | scrub - <duration>', extras={'example': ['`scrub 1 hour 50 seconds`', '`scrub - 1m 30s`']})
     async def _scrub(self, ctx, *args):
         voice_client = ctx.voice_client
@@ -665,7 +470,7 @@ class Music(commands.Cog):
         time_elapsed = round(self.bot.loop.time() - self.start_time)
 
         voice_client.play(discord.FFmpegPCMAudio(executable="./ffmpeg", source=self.now_playing["file"],
-                                                 before_options=ffmpeg_options), after=lambda e: self.play_next(ctx))
+                                                 before_options=ffmpeg_options), after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
         embed = discord.Embed(
             description=f'**[{self.now_playing["title"]}]({self.now_playing["url"]})**\n`[{convert_seconds_to_timestamp(time_elapsed-seconds)} / {convert_seconds_to_timestamp(self.now_playing["time"])}]`  →  `[{convert_seconds_to_timestamp(time_elapsed)} / {convert_seconds_to_timestamp(self.now_playing["time"])}]`')
         await ctx.send(f"went {'forward' if seconds > 0 else 'back'} `{abs(seconds)} seconds`", embed=embed)
@@ -676,6 +481,7 @@ class Music(commands.Cog):
         time.sleep(1.5)
         ctx.voice_client.resume()
 
+    # TODO:
     @commands.command(name='replay', help='Replays the last song.', aliases=['rp', 'again'], usage='replay')
     async def _replay(self, ctx):
         if self.past:
@@ -683,6 +489,7 @@ class Music(commands.Cog):
                 await ctx.send(f"Replaying **{self.past['title']}**")
             await self._play(ctx, self.past["url"])
 
+    # TODO:
     async def send_lyric_page(self, ctx, page=1, message=None, sent_lyrics=None):
         if sent_lyrics:
             lyrics = sent_lyrics
@@ -733,6 +540,7 @@ class Music(commands.Cog):
             if message:
                 await message.clear_reactions()
 
+    # TODO:
     @commands.command(name='lyrics', help='Shows the lyrics of the currently playing song', aliases=['lyric'], usage='lyrics | lyrics <song name>')
     async def _lyrics(self, ctx, *args):
         if args:
@@ -769,6 +577,7 @@ class Music(commands.Cog):
                 self.now_playing['lyrics'] = lyrics
         await self.send_lyric_page(ctx)
 
+    # TODO:
     async def _download(self, ctx):
         self.download_queue = self.queue.copy()
         while self.download_queue:
