@@ -31,6 +31,11 @@ class SongQueue:
     def clear(self) -> None:
         self.queue.clear()
 
+    def moveToFront(self, index) -> None:
+        temp = self.queue[index]
+        del self.queue[index]
+        self.queue.appendleft(temp)
+
     def __len__(self):
         return len(self.queue)
 

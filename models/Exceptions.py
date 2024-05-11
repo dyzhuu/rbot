@@ -2,5 +2,5 @@ class MessageException(Exception):
     pass
 
 
-class LyricNotFoundException(Exception):
+class LyricNotFoundException(MessageException):
     pass

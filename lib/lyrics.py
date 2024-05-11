@@ -21,7 +21,7 @@ def split_lyric(lyric):
     return [lyric]
 
 
-def get_lyrics(self, song_name: str) -> List[str]:  # genius
+def get_lyrics(song_name: str) -> List[str]:  # genius
     song_name = re.sub(r"\([^()]*\)", "", song_name)
     song_name = re.sub(r'[^\w\s]', ' ', song_name)
     hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11'
@@ -40,7 +40,7 @@ def get_lyrics(self, song_name: str) -> List[str]:  # genius
             raise LyricNotFoundException('Link start not found')
         link_end = result.find('&amp;', link_start + 1)
 
-        self.url = result[link_start:link_end]
+        url = result[link_start:link_end]
 
         song_html = requests.get(url).content
         soup = BeautifulSoup(song_html, 'lxml')

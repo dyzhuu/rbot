@@ -1,5 +1,6 @@
 import discord
 import asyncio
+import os
 
 from discord.ext.commands import Context
 
@@ -26,18 +27,35 @@ class MusicPlayer:
         time_elapsed = convert_seconds_to_timestamp(
             round(self.bot.loop.time() - self.now_playing.start_time))
         embed = discord.Embed(
-            title="Now Playing", description=f'**[{self.now_playing.title}]({self.now_playing.url})**\n`[{time_elapsed} / {convert_seconds_to_timestamp(self.now_playing.time)}]`')
+            title="Now Playing", description=f'**[{self.now_playing}]({self.now_playing.url})**\n`[{time_elapsed} / {convert_seconds_to_timestamp(self.now_playing.time)}]`')
         embed.add_field(
             name="", value=f"Requested by: {self.now_playing.requested_user}")
         embed.set_image(url=self.now_playing.image_url)
         if not self.queue.is_empty():
             embed.set_footer(
-                text=f'Up next: {self.queue[0].title}')
+                text=f'Up next: {self.queue[0]}')
         await ctx.send(embed=embed)
 
     async def play_next(self, ctx: Context):
+        # skip & loop functionality
+        if self.loop == Loop.OFF or self.now_playing.skipped:
+            self.delete(self.now_playing)
+        elif self.loop == Loop.ON and not self.now_playing.skipped:
+            self.queue.append(self.now_playing)
+        elif self.loop == Loop.ONE and not self.now_playing.skipped:
+            self.queue.appendleft(self.now_playing)
+
         self.now_playing = None
         await self.play(ctx)
+
+    def delete(self, song):
+        if os.path.exists(song.file):
+            os.remove(song.file)
+
+    def clear(self):
+        for song in self.queue:
+            self.delete(song)
+        self.queue.clear()
 
     async def play(self, ctx: Context):
         if self.queue.is_empty() or ctx.voice_client.is_playing():

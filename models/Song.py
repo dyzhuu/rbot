@@ -21,6 +21,8 @@ class Song(ABC):
         self.requested_user = requested_user
         self.song_type = song_type
         self.start_time = None
+        self.lyrics = None
+        self.skipped = False
 
     @abstractmethod
     async def download(self):
@@ -46,7 +48,7 @@ class SpotifySong(Song):
         self.artist = artist
 
     async def download(self, loop=None):
-        data = await YTDLSource.from_name(self.__str__(), loop=loop)
+        data = await YTDLSource.from_name(f"{self.title} {self.artist}", loop=loop)
         self.file = data["file"]
         self.time = data["time"]
 
