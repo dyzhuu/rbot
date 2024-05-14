@@ -1,8 +1,6 @@
 import yt_dlp
 import discord
 import asyncio
-import difflib
-
 from ytmusicapi import YTMusic
 
 ydl_opts = {
@@ -66,9 +64,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if not result:
             raise Exception("No results found")
 
-        videoId = result[0].get('videoId')
+        video_id = result[0].get('videoId')
 
-        data = await loop.run_in_executor(None, download_youtube_audio, f"https://www.youtube.com/watch?v={videoId}")
+        data = await loop.run_in_executor(None, download_youtube_audio, f"https://www.youtube.com/watch?v={video_id}")
 
         return {
             "file": ytdl.prepare_filename(data),

@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from .Song import Song
 import random
 
-from typing import Deque
+from typing import Deque, Tuple, Optional
 
 
 class SongQueue:
@@ -14,6 +14,9 @@ class SongQueue:
         return self.queue.popleft()
 
     def enqueue(self, song: Song) -> None:
+        self.queue.append(song)
+
+    def enqueue_to_top(self, song: Song) -> None:
         self.queue.append(song)
 
     def extend(self, songs: Sequence[Song]) -> None:
@@ -31,10 +34,16 @@ class SongQueue:
     def clear(self) -> None:
         self.queue.clear()
 
-    def moveToFront(self, index) -> None:
+    def move_to_front(self, index) -> None:
         temp = self.queue[index]
         del self.queue[index]
         self.queue.appendleft(temp)
+
+    def get_song_by_name(self, query: str) -> Tuple[int, Optional[Song]]:
+        for index, song in enumerate(self.queue):
+            if query.lower().replace(' ', '') in song.title.lower().replace(' ', ''):
+                return index, song
+        return -1, None
 
     def __len__(self):
         return len(self.queue)

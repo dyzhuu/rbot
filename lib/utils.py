@@ -11,7 +11,7 @@ number_emojis = {
 }
 
 
-def delete_audio(exclude: str = ''):
+def clear_audio_files(exclude: str = ''):
     dir_name = os.path.join(os.path.dirname(__file__), "audio")
     test = os.listdir(dir_name)
     for item in test:

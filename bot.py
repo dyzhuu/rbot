@@ -3,8 +3,7 @@ import os
 import traceback
 from collections import defaultdict, deque
 
-# from cogs.music import Music
-from cogs.musiccopy import Music
+from cogs.music import Music
 from cogs.help import Help
 from services.chatgpt import chatgpt_response
 
@@ -45,7 +44,7 @@ class DiscordClient(commands.Bot):
                     if len(self.memory[message.author.id]) > MAX_MEMORY_SIZE:
                         self.memory[message.author.id].popleft()
                     await message.reply(response, mention_author=False)
-        except Exception:
+        except:
             print(traceback.print_exc())
 
 

@@ -1,7 +1,7 @@
 import tekore as tk
 import os
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional
 
 from models.Song import SpotifySong
 
@@ -15,7 +15,7 @@ app_token = tk.request_client_token(CLIENT_ID, CLIENT_SECRET)
 spotify = tk.Spotify(app_token)
 
 
-def get_spotify_track(spotify_url: str) -> SpotifySong:
+def get_spotify_track(spotify_url: str) -> Optional[SpotifySong]:
     if not spotify_url:
         return
 
@@ -32,7 +32,7 @@ def get_spotify_track(spotify_url: str) -> SpotifySong:
 
 def get_spotify_playlist_tracks(spotify_url: str) -> List[SpotifySong]:
     if not spotify_url:
-        return
+        return []
 
     playlist_id = tk.from_url(spotify_url)[1]
     playlist = spotify.playlist(playlist_id)
@@ -51,7 +51,7 @@ def get_spotify_playlist_tracks(spotify_url: str) -> List[SpotifySong]:
 
 def get_spotify_album_tracks(spotify_url: str) -> List[SpotifySong]:
     if not spotify_url:
-        return
+        return []
 
     album_id = tk.from_url(spotify_url)[1]
     album = spotify.album(album_id)
@@ -70,12 +70,12 @@ def get_spotify_album_tracks(spotify_url: str) -> List[SpotifySong]:
 
 
 def search_playlist(query: str):
-    result = spotify.search(query=query, types=['playlist'], limit=1)[
+    result = spotify.search(query=query, types=('playlist',), limit=1)[
         0].items[0]
     return result.name, result.external_urls['spotify']
 
 
 def search_album(query: str):
-    result = spotify.search(query=query, types=['album'], limit=1)[
+    result = spotify.search(query=query, types=('album',), limit=1)[
         0].items[0]
     return result.name, result.external_urls['spotify']
