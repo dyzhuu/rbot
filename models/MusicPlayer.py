@@ -49,7 +49,7 @@ class MusicPlayer:
         await ctx.send(embed=embed)
 
     async def play_next(self, ctx: Context):
-        if not ctx.voice_client.is_playing():
+        if not ctx.voice_client:
             return
         if self.now_playing.is_seek:
             self.now_playing.is_seek = False
