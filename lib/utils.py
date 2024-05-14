@@ -11,7 +11,7 @@ number_emojis = {
 }
 
 
-def delete_audio(exclude: str = ''):
+def clear_audio_files(exclude: str = ''):
     dir_name = os.path.join(os.path.dirname(__file__), "audio")
     test = os.listdir(dir_name)
     for item in test:
@@ -19,7 +19,7 @@ def delete_audio(exclude: str = ''):
             os.remove(os.path.join(dir_name, item))
 
 
-def convert_seconds(seconds: int):
+def convert_seconds_to_timestamp(seconds: int):
     units = {"hours": 3600, "minutes": 60, "seconds": 1}
     values = []
     for value in units.values():

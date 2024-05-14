@@ -30,20 +30,3 @@ def chatgpt_response(prompt: str, memory):
     message_content = response['choices'][0]['message']
     memory.append(message_content.to_dict())
     return message_content['content']
-
-
-def chatgpt_image_response(prompt: str):
-    response = openai.Image.create(
-        prompt=prompt,
-        n=1,
-        size="1024x1024"
-    )
-    return response['data'][0]['url']
-
-
-def fine_tuned_response(prompt: str):
-    response = openai.Completion.create(
-        model="ada:ft-personal-2023-08-11-22-08-21",
-        prompt="\n\n###\n\n"+prompt,
-        stop=[' END'])
-    return response
