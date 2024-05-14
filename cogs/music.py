@@ -6,7 +6,6 @@ import math
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
-import requests
 
 from lib.constants import MAX_QUEUE_LENGTH
 from lib.utils import number_emojis, convert_seconds_to_timestamp, \
@@ -14,7 +13,7 @@ from lib.utils import number_emojis, convert_seconds_to_timestamp, \
 from lib.lyrics import get_lyrics, split_lyric
 from lib.embeds import generate_add_to_queue_embed
 
-from services.youtube import search_multiple_video
+from services.YoutubeService import YoutubeService
 
 from models.MusicPlayer import MusicPlayer
 from models.SongQueue import SongQueue
@@ -97,9 +96,6 @@ class Music(commands.Cog):
                 await self.player.add_song_by_name(ctx, ' '.join(args))
         else:
             url = args[0]
-            if 'spotify.link' in url:
-                # TODO: blocking
-                url = requests.get(url).url
             if "com/playlist" in url or "com/album" in url:
                 loading_embed = discord.Embed(
                     title="Loading songs...")
@@ -157,7 +153,7 @@ class Music(commands.Cog):
 
         if self.player.now_playing:
             embed = generate_add_to_queue_embed(
-                self.queue[0], len(self.queue))
+                self.queue[-1], 1)
             await ctx.send(embed=embed)
 
         await self.player.play(ctx)
@@ -314,7 +310,7 @@ class Music(commands.Cog):
                 color=discord.Colour.red())
             return await ctx.send(embed=embed)
         async with ctx.typing():
-            videos = search_multiple_video(" ".join(args))
+            videos = YoutubeService.search_multiple_video(" ".join(args))
         if not videos:
             return await ctx.send("No results found")
 

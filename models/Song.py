@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Optional
 from abc import ABC, abstractmethod
 
-from services.YTDL import YTDLSource
+from services.YTDL import YTDL
 
 
 class SongType(Enum):
@@ -35,7 +35,7 @@ class YoutubeSong(Song):
         self.author = author
 
     async def download(self):
-        self.file = (await YTDLSource.from_url(self.url))["file"]
+        self.file = (await YTDL.from_url(self.url))["file"]
 
     def __str__(self):
         return f"{self.title} - {self.author}"
@@ -48,7 +48,7 @@ class SpotifySong(Song):
         self.artist = artist
 
     async def download(self, loop=None):
-        data = await YTDLSource.from_name(f"{self.title} {self.artist}", loop=loop)
+        data = await YTDL.from_name(f"{self.title} {self.artist}", loop=loop)
         self.file = data["file"]
         self.time = data["time"]
 

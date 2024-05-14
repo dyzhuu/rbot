@@ -11,9 +11,9 @@ from .Enums import Loop
 from models.SongQueue import SongQueue
 from models.Song import Song, YoutubeSong
 
-from services.spotify import get_spotify_track, get_spotify_album_tracks, get_spotify_playlist_tracks
-from services.youtube import get_videos_from_yt_playlist
-from services.YTDL import YTDLSource
+from services.SpotifyService import SpotifyService
+from services.YoutubeService import YoutubeService
+from services.YTDL import YTDL
 
 from lib.utils import convert_seconds_to_timestamp, clear_audio_files
 
@@ -105,15 +105,17 @@ class MusicPlayer:
 
     async def add_song_by_url(self, ctx, url, top=False):
         if "spotify" in url:
-            song = get_spotify_track(url)
+            song = SpotifyService.get_track(url)
             song.requested_user = f"<@{ctx.message.author.id}>"
 
-            data = await YTDLSource.from_name(str(song), loop=self.bot.loop)
+            print(song)
+
+            data = await YTDL.from_name(str(song), loop=self.bot.loop)
 
             song.file = data["file"]
             song.time = data["time"]
         else:
-            data = await YTDLSource.from_url(url)
+            data = await YTDL.from_url(url)
             song = YoutubeSong(
                 file=data["file"],
                 time=data["time"],
@@ -129,7 +131,7 @@ class MusicPlayer:
             self.queue.enqueue(song)
 
     async def add_song_by_name(self, ctx, name, top=False):
-        data = await YTDLSource.from_name(name, loop=self.bot.loop)
+        data = await YTDL.from_name(name, loop=self.bot.loop)
         song = YoutubeSong(
             file=data["file"],
             time=data["time"],
@@ -146,9 +148,9 @@ class MusicPlayer:
 
     async def add_spotify_playlist_or_album(self, ctx, url):
         if "playlist" in url:
-            songs = get_spotify_playlist_tracks(url)
+            songs = SpotifyService.get_playlist_tracks(url)
         elif "album" in url:
-            songs = get_spotify_album_tracks(url)
+            songs = SpotifyService.get_album_tracks(url)
         else:
             return
 
@@ -157,7 +159,7 @@ class MusicPlayer:
             self.queue.enqueue(song)
 
     async def add_youtube_playlist(self, ctx, url):
-        songs = await get_videos_from_yt_playlist(url)
+        songs = await YoutubeService.get_videos_from_playlist(url)
         for song in songs:
             song.requested_user = f"<@{ctx.message.author.id}>"
             self.queue.enqueue(song)

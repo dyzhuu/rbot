@@ -34,7 +34,7 @@ def download_youtube_audio(url: str, download=True):
     return data
 
 
-class YTDLSource(discord.PCMVolumeTransformer):
+class YTDL(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
         self.data = data
