@@ -19,6 +19,7 @@ class Song(ABC):
         self.image_url: str = image_url
         self.requested_user: str = requested_user
         self.song_type: SongType = song_type
+        self.downloaded: bool = False
         self.start_time: Optional[int] = None
         self.lyrics: Optional[str] = None
         self.skipped: bool = False
@@ -36,6 +37,7 @@ class YoutubeSong(Song):
 
     async def download(self):
         self.file = (await YTDL.from_url(self.url))["file"]
+        self.downloaded = True
 
     def __str__(self):
         return f"{self.title} - {self.author}"
@@ -51,6 +53,7 @@ class SpotifySong(Song):
         data = await YTDL.from_name(f"{self.title} {self.artist}", loop=loop)
         self.file = data["file"]
         self.time = data["time"]
+        self.downloaded = True
 
     def __str__(self):
         return f"{self.title} - {self.artist}"

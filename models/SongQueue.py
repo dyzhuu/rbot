@@ -45,6 +45,11 @@ class SongQueue:
                 return index, song
         return -1, None
 
+    def get_next_undownloaded_song(self):
+        for song in self.queue:
+            if not song.downloaded:
+                return song
+
     def __len__(self):
         return len(self.queue)
 

@@ -10,6 +10,7 @@ from .Enums import Loop
 
 from models.SongQueue import SongQueue
 from models.Song import Song, YoutubeSong
+from models.DownloadBuffer import DownloadBuffer
 
 from services.SpotifyService import SpotifyService
 from services.YoutubeService import YoutubeService
@@ -25,6 +26,7 @@ class MusicPlayer:
         self.past: Optional[Song] = None
         self.now_playing: Optional[Song] = None
         self.loop: Loop = Loop.OFF
+        self.download_buffer = DownloadBuffer(self.bot, self.queue)
 
     @staticmethod
     def delete(song):
@@ -47,6 +49,8 @@ class MusicPlayer:
         await ctx.send(embed=embed)
 
     async def play_next(self, ctx: Context):
+        if not ctx.voice_client.is_playing():
+            return
         if self.now_playing.is_seek:
             self.now_playing.is_seek = False
             return
@@ -57,6 +61,8 @@ class MusicPlayer:
             self.queue.enqueue(self.now_playing)
         elif self.loop == Loop.ONE and not self.now_playing.skipped:
             self.queue.enqueue_to_top(self.now_playing)
+
+        self.download_buffer.song_finished()
 
         self.past = self.now_playing
         self.now_playing = None
@@ -69,17 +75,20 @@ class MusicPlayer:
         clear_audio_files()
 
     async def play(self, ctx: Context):
-        if self.queue.is_empty() or ctx.voice_client.is_playing():
+        if self.queue.is_empty() or ctx.voice_client.is_playing() or self.now_playing:
             return
 
         song = self.queue.dequeue()
-
-        if not song.file:
-            await song.download()
-
         self.now_playing = song
 
+        self.download_buffer.start_download(ctx)
+
+        if not song.downloaded:
+            song.downloaded = True
+            await song.download()
+
         self.now_playing.start_time = self.bot.loop.time()
+
         await self.send_now_playing(ctx)
 
         ctx.voice_client.play(
