@@ -31,35 +31,35 @@ def get_lyrics(song_name: str) -> List[str]:  # genius
     name = quote_plus(f"{song_name} site:genius.com")
     url = 'http://www.google.com/search?q=' + name
 
-    try:
-        result = requests.get(url, headers=hdr).text
+    result = requests.get(url, headers=hdr).text
 
-        link_start = result.find('https://genius.com')
+    link_start = result.find('https://genius.com')
 
-        if (link_start == -1):
-            raise LyricNotFoundException('Link start not found')
-        link_end = result.find('&amp;', link_start + 1)
+    if (link_start == -1):
+        raise LyricNotFoundException('Link start not found')
+    link_end = result.find('&amp;', link_start + 1)
 
-        url = result[link_start:link_end]
+    url = result[link_start:link_end]
 
-        song_html = requests.get(url).content
-        soup = BeautifulSoup(song_html, 'lxml')
+    song_html = requests.get(url).content
+    soup = BeautifulSoup(song_html, 'lxml')
 
-        lyrics = []
-        for tag in soup.select('div[class^="Lyrics__Container"], .song_body-lyrics p'):
-            t = tag.get_text(strip=True, separator='\n')
-            t = t.replace('(\n', '(') \
-                .replace('\n)', ')') \
-                .replace('\n]', ']') \
-                .replace('[\n', '[') \
-                .replace('\n,', ',') \
-                .replace(',\n', ', ')
-            if t:
-                lyrics.append(t)
+    lyrics = []
+    for tag in soup.select('div[class^="Lyrics__Container"], .song_body-lyrics p'):
+        t = tag.get_text(strip=True, separator='\n')
+        t = t.replace('(\n', '(') \
+            .replace('\n)', ')') \
+            .replace('\n]', ']') \
+            .replace('[\n', '[') \
+            .replace('\n,', ',') \
+            .replace(',\n', ', ')
+        if t:
+            lyrics.append(t)
+    
+    if not lyrics:
+        raise LyricNotFoundException('Lyrics not found')
 
-        return lyrics
-    except Exception as e:
-        print("Lyrics error:", e)
+    return lyrics
 
 
 def get_lyrics1(song_name):  # letras
