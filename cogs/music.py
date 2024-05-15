@@ -453,20 +453,21 @@ class Music(commands.Cog):
                       aliases=['lyric'], usage='lyrics | lyrics <song name>')
     async def _lyrics(self, ctx, *args):
         try:
-            async with ctx.typing():
-                if args:
+            if args:
+                async with ctx.typing():
                     query = " ".join(args)
                     lyrics = await self.bot.loop.run_in_executor(
                         None, get_lyrics, query)
-                    return await self.send_lyric_page(ctx, lyrics, query)
+                return await self.send_lyric_page(ctx, lyrics, query)
 
-                current_song = self.player.now_playing
+            current_song = self.player.now_playing
 
-                if not current_song:
-                    return await ctx.send(
-                        "Nothing is currently playing. Use y!play to play a song")
+            if not current_song:
+                return await ctx.send(
+                    "Nothing is currently playing. Use y!play to play a song")
 
-                if not current_song.lyrics:
+            if not current_song.lyrics:
+                async with ctx.typing():
                     lyrics = await self.bot.loop.run_in_executor(
                         None, get_lyrics, str(current_song))
                     current_song.lyrics = lyrics
