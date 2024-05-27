@@ -38,15 +38,6 @@ class Music(commands.Cog):
         self.queue = SongQueue()
         self.player = MusicPlayer(bot, self.queue)
 
-    # disconnects if the bot is idle for 5 minutes
-    async def sleep_and_disconnect(self, voice_client):
-        for _ in range(60):
-            await asyncio.sleep(5)
-            if voice_client.is_playing():
-                return
-        self.player.reset()
-        await voice_client.disconnect()
-
     @commands.command(name='join', help='Joins your current voice channel',
                       usage='join')
     async def _join(self, ctx):
@@ -56,7 +47,7 @@ class Music(commands.Cog):
         else:
             channel = ctx.message.author.voice.channel
         await channel.connect()
-        await self.sleep_and_disconnect(ctx.voice_client)
+        await MusicPlayer.wait_and_disconnect(ctx)
 
     @commands.command(name='disconnect',
                       help='Disconnects from the voice channel',

@@ -35,6 +35,14 @@ class MusicPlayer:
         if os.path.exists(song.file):
             os.remove(song.file)
 
+    @staticmethod
+    async def wait_and_disconnect(ctx: Context):
+        for i in range(60):
+            await asyncio.sleep(5)
+            if ctx.voice_client.is_playing():
+                return
+        await ctx.voice_client.disconnect()
+
     async def send_now_playing(self, ctx):
         time_elapsed = convert_seconds_to_timestamp(
             round(self.bot.loop.time() - self.now_playing.start_time))
@@ -66,6 +74,8 @@ class MusicPlayer:
 
         self.past = self.now_playing
         self.now_playing = None
+
+        self.wait_and_disconnect(ctx)
         await self.play(ctx)
 
 
