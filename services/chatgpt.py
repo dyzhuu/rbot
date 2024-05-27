@@ -1,13 +1,16 @@
 import os
 from dotenv import load_dotenv
 import openai
+from lib.setup import write_prompt_file
 
 load_dotenv()
+
+write_prompt_file()
 
 openai.api_key = os.getenv('API_KEY')
 
 path = os.path.dirname(__file__)
-prompt_path = os.path.join(path, "prompt.txt")
+prompt_path = os.path.join(path, "..", "prompt.txt")
 
 
 if not os.path.exists(prompt_path):
