@@ -1,3 +1,4 @@
+import os
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import quote_plus
@@ -20,8 +21,12 @@ def split_lyric(lyric):
         return [*first_part, *second_part]
     return [lyric]
 
+def get_lyrics(song_name: str):
+    if os.getenv('GENIUS_LYRICS') == "TRUE":
+        return get_genius_lyrics(song_name)
+    return get_letras_lyrics(song_name)
 
-def get_lyrics(song_name: str) -> List[str]:  # genius
+def get_genius_lyrics(song_name: str) -> List[str]:  # genius
     song_name = re.sub(r"\([^()]*\)", "", song_name)
     song_name = re.sub(r'[^\w\s]', ' ', song_name)
     hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11'
@@ -35,7 +40,7 @@ def get_lyrics(song_name: str) -> List[str]:  # genius
 
     link_start = result.find('https://genius.com')
 
-    if (link_start == -1):
+    if link_start == -1:
         raise LyricNotFoundException('Link start not found')
     link_end = result.find('&amp;', link_start + 1)
 
@@ -62,7 +67,7 @@ def get_lyrics(song_name: str) -> List[str]:  # genius
     return lyrics
 
 
-def get_lyrics1(song_name):  # letras
+def get_letras_lyrics(song_name):  # letras
     try:
         song_name = re.sub(r"\([^()]*\)", "", song_name)
         song_name = re.sub(r'[^\w\s]', ' ', song_name)
@@ -81,7 +86,7 @@ def get_lyrics1(song_name):  # letras
 
         link_start = result.find('https://www.letras.com')
 
-        if (link_start == -1):
+        if link_start == -1:
             print('Lyric: link start not found')
             return
 

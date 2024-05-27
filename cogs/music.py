@@ -144,7 +144,7 @@ class Music(commands.Cog):
 
         if self.player.now_playing:
             embed = generate_add_to_queue_embed(
-                self.queue[-1], 1)
+                self.queue[0], 1)
             await ctx.send(embed=embed)
 
         await self.player.play(ctx)

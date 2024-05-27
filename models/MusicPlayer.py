@@ -75,10 +75,8 @@ class MusicPlayer:
         self.past = self.now_playing
         self.now_playing = None
 
-        await asyncio.gather(
-            self.wait_and_disconnect(ctx),
-            self.play(ctx)
-        )
+        self.wait_and_disconnect(ctx),
+        await self.play(ctx)
 
 
     def reset(self):
