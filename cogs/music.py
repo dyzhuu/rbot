@@ -258,10 +258,10 @@ class Music(commands.Cog):
         if self.queue.is_empty():
             return await ctx.send("Queue is empty")
         if query.isdigit():
-            index = int(query)
-            if index < 1 or index > len(self.queue):
+            index = int(query) - 1
+            if index < 0 or index >= len(self.queue):
                 return await ctx.send("Invalid position in queue")
-            song = self.queue[index - 1]
+            song = self.queue[index]
         else:
             index, song = self.queue.get_song_by_name(query)
             if not song:
