@@ -17,7 +17,7 @@ class SongQueue:
         self.queue.append(song)
 
     def enqueue_to_top(self, song: Song) -> None:
-        self.queue.append(song)
+        self.queue.appendleft(song)
 
     def extend(self, songs: Sequence[Song]) -> None:
         self.queue.extend(songs)
