@@ -75,9 +75,8 @@ class MusicPlayer:
         self.past = self.now_playing
         self.now_playing = None
 
-        self.wait_and_disconnect(ctx),
+        self.bot.loop.create_task(self.wait_and_disconnect(ctx))
         await self.play(ctx)
-
 
     def reset(self):
         self.queue.clear()
