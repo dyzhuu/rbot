@@ -41,7 +41,7 @@ class MusicPlayer:
             await asyncio.sleep(5)
             if ctx.voice_client.is_playing():
                 return
-        await ctx.voice_client.disconnect()
+        await ctx.voice_client.disconnect(force=True)
 
     async def send_now_playing(self, ctx):
         time_elapsed = convert_seconds_to_timestamp(
@@ -75,8 +75,10 @@ class MusicPlayer:
         self.past = self.now_playing
         self.now_playing = None
 
-        self.wait_and_disconnect(ctx)
-        await self.play(ctx)
+        await asyncio.gather(
+            self.wait_and_disconnect(ctx),
+            self.play(ctx)
+        )
 
 
     def reset(self):
