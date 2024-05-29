@@ -361,7 +361,7 @@ class Music(commands.Cog):
                 value="Supported durations: **s=seconds, m=minutes, h=hours**")
             return await ctx.send(embed=embed)
 
-        if not ctx.voice_client.is_playing():
+        if not self.player.now_playing and not ctx.voice_client.is_playing():
             return await ctx.send(
                 "Nothing is currently playing. Use y!play to play a song")
 
@@ -391,7 +391,7 @@ class Music(commands.Cog):
                 name="",
                 value="Supported durations: **s=seconds, m=minutes, h=hours**")
             return await ctx.send(embed=embed)
-        if not ctx.voice_client.is_playing():
+        if not ctx.voice_client.is_playing() and not self.player.now_playing:
             return await ctx.send(
                 "Nothing is currently playing. Use y!play to play a song")
 
@@ -430,6 +430,19 @@ class Music(commands.Cog):
         await asyncio.sleep(1.5)
         ctx.voice_client.resume()
 
+    @commands.command(name='pause', help='Pauses the song', usage='pause')
+    async def _pause(self, ctx):
+        try:
+            ctx.voice_client.pause()
+        except:
+            await ctx.send("I'm not playing music right now")
+
+    @commands.command(name='resume', help='Resumes the song', usage='resume')
+    async def _resume(self, ctx):
+        try:
+            ctx.voice_client.resume()
+        except:
+            await ctx.send("I'm not playing music right now")
     @commands.command(name='replay', help='Replays the last song.',
                       aliases=['rp', 'again'], usage='replay')
     async def _replay(self, ctx):
