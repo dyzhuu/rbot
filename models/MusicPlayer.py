@@ -57,6 +57,10 @@ class MusicPlayer:
         await ctx.send(embed=embed)
 
     async def play_next(self, ctx: Context):
+        # disconnect if only bot in voice channel
+        for v in ctx.guild.voice_channels:
+            if self.bot.user in v.members and len(v.members) == 1:
+                return await ctx.voice_client.disconnect()
         if not ctx.voice_client:
             return
         if self.now_playing.is_seek:
