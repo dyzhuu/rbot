@@ -1,9 +1,10 @@
 import base64
 import os
 
+
 def write_prompt_file():
     # Example base64 string
-    base64_string = os.getenv('PROMPT')
+    base64_string = os.getenv('SETUP_PROMPT')
 
     # Decode the base64 string
     decoded_data = base64.b64decode(base64_string).decode('utf-8')
