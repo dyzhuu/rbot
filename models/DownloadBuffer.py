@@ -1,5 +1,7 @@
 import asyncio
 from collections import deque
+
+from lib.constants import DOWNLOAD_BUFFER_LENGTH
 from models.SongQueue import SongQueue
 from discord.ext.commands import Context
 
@@ -12,7 +14,7 @@ class DownloadBuffer:
 
     async def download_songs(self, ctx: Context):
         self.is_downloading = True
-        while self.downloaded_songs < 10:
+        while self.downloaded_songs < DOWNLOAD_BUFFER_LENGTH:
             next_song = self.queue.get_next_undownloaded_song()
             if next_song:
                 next_song.downloaded = True

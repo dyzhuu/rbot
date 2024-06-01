@@ -63,8 +63,8 @@ class SpotifyService:
             SpotifySong(
                 title=track.name,
                 url=track.external_urls['spotify'],
-                image_url=track.album.images[0].url,
-                album=track.album.name,
+                image_url=album.images[0].url,
+                album=album.name,
                 artist=track.artists[0].name
             )
             for track in tracks]

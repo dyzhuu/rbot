@@ -93,16 +93,18 @@ class Music(commands.Cog):
                 loading_message = await ctx.send(embed=loading_embed)
                 try:
                     if "spotify" in url:
-                        await self.player.add_spotify_playlist_or_album(ctx,
+                        song_count = await self.player.add_spotify_playlist_or_album(ctx,
                                                                         url)
                     else:
-                        await self.player.add_youtube_playlist(ctx, url)
+                        song_count = await self.player.add_youtube_playlist(ctx, url)
+                    await loading_message.edit(embed=discord.Embed(
+                        title=f"{song_count} songs successfully added to the queue"
+                    ))
                 except MessageException as e:
-                    await ctx.send(e)
+                    await loading_message.edit(e)
                 except Exception as e:
-                    print(e)
-                finally:
                     await loading_message.delete()
+                    print(e)
             else:
                 async with ctx.typing():
                     await self.player.add_song_by_url(ctx, url)
@@ -367,7 +369,7 @@ class Music(commands.Cog):
 
         seek_time_seconds = time_string_to_seconds("".join(args))
 
-        if seek_time_seconds > self.player.now_playing.time or seek_time_seconds <= 0:
+        if seek_time_seconds > self.player.now_playing.time or seek_time_seconds < 0:
             return await ctx.send("Invalid time")
 
         await self.player.skip_to(ctx, seek_time_seconds)
@@ -427,8 +429,10 @@ class Music(commands.Cog):
     async def _poke(self, ctx):
         await ctx.send("hi")
         ctx.voice_client.pause()
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1)
         ctx.voice_client.resume()
+        if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and self.player.now_playing:
+            await self.player.skip_to(ctx, 0)
 
     @commands.command(name='pause', help='Pauses the song', usage='pause')
     async def _pause(self, ctx):

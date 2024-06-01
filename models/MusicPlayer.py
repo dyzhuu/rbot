@@ -168,17 +168,19 @@ class MusicPlayer:
         else:
             self.queue.enqueue(song)
 
-    async def add_spotify_playlist_or_album(self, ctx, url):
+    async def add_spotify_playlist_or_album(self, ctx, url) -> int:
         if "playlist" in url:
             songs = SpotifyService.get_playlist_tracks(url)
         elif "album" in url:
             songs = SpotifyService.get_album_tracks(url)
         else:
-            return
+            return 0
 
         for song in songs:
             song.requested_user = f"<@{ctx.message.author.id}>"
             self.queue.enqueue(song)
+
+        return len(songs)
 
     async def add_youtube_playlist(self, ctx, url):
         songs = await YoutubeService.get_videos_from_playlist(url)
